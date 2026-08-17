@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from models import User
 from dependencies import sessionmaker, take_session
+from main import bcrypt_context
 
 #Criação do roteador de rotas de autenticação
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -18,7 +19,8 @@ async def create_account(email: str, password: str, name: str, session = take_se
     if user:
         return {"mensagem: Já existe um usuário com esse email"}
     else:
-        new_user = User(name=name, email=email, password=password)
+        encrypted_password = bcrypt_context.hash(password)
+        new_user = User(name=name, email=email, encrypted_password=encrypted_password)
         session.add(new_user)
         session.commit()
         return {"mensagem: Usuário cadastrado com sucesso"}
