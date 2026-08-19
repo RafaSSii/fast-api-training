@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.sql.functions import user
-
 from models import User
 from dependencies import take_session
 from main import bcrypt_context
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, session
 from schemas import UserSchema, LoginSchema
 
 #Criação do roteador de rotas de autenticação
@@ -13,6 +12,14 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 def create_token(user_id):
     token = f"ajshdgfsoiv{user_id}"
     return token
+
+def authenticate_user(email: str, password: str, session):
+    users = session.query(User).filter(User.email == email).first()
+    if not users:
+        return False
+    elif not bcrypt_context.verify(password, users.password):
+        return False
+    return users
 
 @auth_router.get("/")
 async def home():
@@ -34,10 +41,10 @@ async def create_account(user_schema: UserSchema, session: Session = Depends(tak
         return {f"mensagem: Usuário cadastrado com sucesso {user_schema.email}"}
 
 @auth_router.post("/login")
-async def login(login_schema: LoginSchema ,session: Session = Depends(take_session)):
-    users = session.query(User).filter(User.email == login_schema.email).first()
+async def login(login_schema: LoginSchema, session: Session = Depends(take_session)):
+    users = authenticate_user(login_schema.email, login_schema.password, session)
     if not users:
-        raise HTTPException(status_code=400, detail="Usuário não encontrado")
+        raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas")
     else:
         access_token = create_token(users.id)
         return {"access_token": access_token, "token_type": "bearer"}
